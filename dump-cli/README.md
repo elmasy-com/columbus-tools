@@ -1,3 +1,5 @@
 # dump
 
-Dump and insert old database to the new.
+Dump domains directly from a MongoDB instance.
+
+Insert the domain to Columbus Server and delete domain form the DB.
