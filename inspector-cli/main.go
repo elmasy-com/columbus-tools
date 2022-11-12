@@ -4,7 +4,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 
@@ -55,7 +54,7 @@ func main() {
 	for cursor.Next(context.TODO()) {
 
 		if err := cursor.Decode(&result); err != nil {
-			log.Fatal(err)
+			fmt.Fprintf(os.Stderr, "Failed to decode domain: %s", err)
 		}
 
 		d := domain.GetDomain(result.Domain)
