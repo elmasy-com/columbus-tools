@@ -55,21 +55,26 @@ func main() {
 
 		if err := cursor.Decode(&result); err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to decode domain: %s", err)
+			continue
 		}
 
 		d := domain.GetDomain(result.Domain)
 		if d == "" {
 			fmt.Fprintf(os.Stderr, "Failed to domain.GetDomain(): empty result for %s\n", result.Domain)
+			continue
 		} else if d != result.Domain {
 			fmt.Fprintf(os.Stderr, "Different result after GetDomain() for %s: %s\n", result.Domain, d)
+			continue
 		}
 
 		if len(result.Subs) == 0 {
 			fmt.Printf("%s -> Invalid length of subs: %d\n", result.Domain, len(result.Subs))
+			continue
 		}
 
 		if result.Shard > 0 {
 			fmt.Printf("%s -> More than one shard: %d \n", result.Domain, result.Shard)
+			continue
 		}
 
 		if *contains != "" && strings.Contains(result.Domain, *contains) {
