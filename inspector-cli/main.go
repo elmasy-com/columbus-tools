@@ -61,10 +61,8 @@ func main() {
 		d := domain.GetDomain(result.Domain)
 		if d == "" {
 			fmt.Fprintf(os.Stderr, "Failed to domain.GetDomain(): empty result for %s\n", result.Domain)
-			os.Exit(1)
 		} else if d != result.Domain {
 			fmt.Fprintf(os.Stderr, "Different result after GetDomain() for %s: %s\n", result.Domain, d)
-			os.Exit(1)
 		}
 
 		if len(result.Subs) == 0 {
