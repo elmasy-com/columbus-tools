@@ -82,7 +82,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		fmt.Printf("Running %s/%d\r", d.Domain, d.Shard)
+		fmt.Printf("Now -> %s/%d, subs size %d\r", d.Domain, d.Shard, len(d.Subs))
 
 		full := d.GetFull()
 		for i := range full {
