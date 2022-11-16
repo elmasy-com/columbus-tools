@@ -18,6 +18,7 @@ func main() {
 
 	mongoUri := flag.String("uri", "", "MongoDB Connection URI")
 	contains := flag.String("contains", "", "Check if any domain contains the given string")
+	shard := flag.Bool("shard", false, "Show domains with shard > 0")
 	flag.Parse()
 
 	if *mongoUri == "" {
@@ -72,9 +73,16 @@ func main() {
 			continue
 		}
 
-		if result.Shard > 0 {
+		if *shard && result.Shard > 0 {
 			fmt.Printf("%s -> More than one shard: %d \n", result.Domain, result.Shard)
 			continue
+		}
+
+		full := result.GetFull()
+		for i := range full {
+			if !domain.IsValid(full[i]) {
+				fmt.Fprintf(os.Stderr, "INVALID -> %s is invalid domain\n", full[i])
+			}
 		}
 
 		if *contains != "" && strings.Contains(result.Domain, *contains) {
