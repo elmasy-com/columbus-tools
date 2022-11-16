@@ -13,10 +13,50 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+var (
+	verbose    bool
+	client     *mongo.Client
+	collection *mongo.Collection
+	domainChan = make(chan sdk.Domain, 100)
+)
+
+func insertWorker() {
+
+	for {
+		start := time.Now()
+
+		d := <-domainChan
+
+		full := d.GetFull()
+		for i := range full {
+
+			err := sdk.Insert(full[i])
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to insert %s: %s\n", full[i], err)
+				os.Exit(1)
+			}
+		}
+
+		res, err := collection.DeleteOne(context.TODO(), bson.D{{Key: "domain", Value: d.Domain}, {Key: "shard", Value: d.Shard}})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to delete %s/%d: %s\n", d.Domain, d.Shard, err)
+			os.Exit(1)
+		}
+		if res.DeletedCount == 0 {
+			fmt.Fprintf(os.Stderr, "Faile to delete %s/%d: nothing deleted\n", d.Domain, d.Shard)
+			os.Exit(1)
+		}
+
+		if verbose {
+			fmt.Printf("%s/%d inserted successfully in %s\n", d.Domain, d.Shard, time.Since(start).String())
+		}
+	}
+}
+
 func main() {
 	mongoUri := flag.String("uri", "", "Mongo connection URI")
 	key := flag.String("key", "", "Columbus API key")
-	verbose := flag.Bool("verbose", false, "Print successfuly inserted domains")
+	flag.BoolVar(&verbose, "verbose", false, "Print successfuly inserted domains")
 	server := flag.String("columbus", "https://columbus.elmasy.com", "Columbus server URI")
 
 	flag.Parse()
@@ -34,14 +74,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	client, err := mongo.Connect(context.TODO(), options.Client().ApplyURI(*mongoUri))
+	var err error
+
+	client, err = mongo.Connect(context.TODO(), options.Client().ApplyURI(*mongoUri))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to connect to MongoDB: %s\n", err)
 		os.Exit(1)
 	}
 	defer client.Disconnect(context.TODO())
 
-	collection := client.Database("columbus").Collection("domains")
+	collection = client.Database("columbus").Collection("domains")
 
 	domainNum, err := collection.CountDocuments(context.TODO(), bson.D{})
 	if err != nil {
@@ -59,6 +101,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Ugly! But this tool is temporary.
+	go insertWorker()
+	go insertWorker()
+	go insertWorker()
+	go insertWorker()
+	go insertWorker()
+	go insertWorker()
+	go insertWorker()
+	go insertWorker()
+
 	cursor, err := collection.Find(context.TODO(), bson.D{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to find domains: %s\n", err)
@@ -66,10 +118,9 @@ func main() {
 	}
 	defer cursor.Close(context.TODO())
 
-	var d sdk.Domain
 	for cursor.Next(context.TODO()) {
 
-		start := time.Now()
+		var d sdk.Domain
 
 		err = cursor.Decode(&d)
 		if err != nil {
@@ -82,30 +133,11 @@ func main() {
 			os.Exit(1)
 		}
 
-		fmt.Printf("Now -> %s/%d, subs size %d\r", d.Domain, d.Shard, len(d.Subs))
+		domainChan <- d
+	}
 
-		full := d.GetFull()
-		for i := range full {
-
-			err = sdk.Insert(full[i])
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Failed to insert %s: %s\n", full[i], err)
-				os.Exit(1)
-			}
-		}
-
-		res, err := collection.DeleteOne(context.TODO(), bson.D{{"domain", d.Domain}, {"shard", d.Shard}})
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to delete %s/%d: %s\n", d.Domain, d.Shard, err)
-			os.Exit(1)
-		}
-		if res.DeletedCount == 0 {
-			fmt.Fprintf(os.Stderr, "Faile to delete %s/%d: nothing deleted\n", d.Domain, d.Shard)
-			os.Exit(1)
-		}
-
-		if *verbose {
-			fmt.Printf("%s/%d inserted successfully in %s\n", d.Domain, d.Shard, time.Since(start).String())
-		}
+	if err := cursor.Err(); err != nil {
+		fmt.Fprintf(os.Stderr, "Cursor error: %s\n", err)
+		os.Exit(2)
 	}
 }
