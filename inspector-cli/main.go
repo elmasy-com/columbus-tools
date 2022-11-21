@@ -63,22 +63,22 @@ func main() {
 
 		d := domain.GetDomain(result.Domain)
 		if d == "" {
-			fmt.Fprintf(os.Stderr, "INVALIDDOM  -> Failed to domain.GetDomain(): empty result for %s\n", result.Domain)
+			fmt.Fprintf(os.Stderr, "INVALIDDOM  -> Failed to domain.GetDomain(): empty result for %s/%d\n", result.Domain, result.Shard)
 			continue
 		} else if d != result.Domain {
-			fmt.Fprintf(os.Stderr, "INVALIDDOM  -> Different result after GetDomain() for %s: %s\n", result.Domain, d)
+			fmt.Fprintf(os.Stderr, "INVALIDDOM  -> Different result after GetDomain() for %s/%d: %s\n", result.Domain, result.Shard, d)
 			continue
 		}
 
 		l := len(result.Subs)
 
 		if l == 0 {
-			fmt.Printf("INVALIDLEN  -> Invalid length of subs for %s: %d\n", result.Domain, len(result.Subs))
+			fmt.Printf("INVALIDLEN  -> Invalid length of subs for %s/%d: %d\n", result.Domain, result.Shard, len(result.Subs))
 			continue
 		}
 
 		if *size != -1 && l >= *size {
-			fmt.Printf("SIZE        -> Size of %s: %d \n", result.Domain, l)
+			fmt.Printf("SIZE        -> Size of %s/%d: %d \n", result.Domain, result.Shard, l)
 			totalSizeDomain++
 		}
 
@@ -94,7 +94,7 @@ func main() {
 		}
 
 		if *contains != "" && strings.Contains(result.Domain, *contains) {
-			fmt.Printf("CONTAINS    -> %s with size if %d\n", result.Domain, l)
+			fmt.Printf("CONTAINS    -> %s/%d with size of %d\n", result.Domain, result.Shard, l)
 			totalContains++
 		}
 	}
