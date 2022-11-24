@@ -5,6 +5,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"runtime"
+	"sync"
 	"time"
 
 	sdk "github.com/elmasy-com/columbus-sdk"
@@ -17,15 +19,20 @@ var (
 	verbose    bool
 	client     *mongo.Client
 	collection *mongo.Collection
-	domainChan = make(chan sdk.Domain, 100)
+	domainChan chan sdk.Domain
 )
 
-func insertWorker() {
+func insertWorker(wg *sync.WaitGroup) {
 
-	for {
+	defer wg.Done()
+
+	for d := range domainChan {
+
+		if verbose {
+			fmt.Printf("Inserting %s/%d...\n", d.Domain, d.Shard)
+		}
+
 		start := time.Now()
-
-		d := <-domainChan
 
 		full := d.GetFull()
 		for i := range full {
@@ -57,9 +64,12 @@ func main() {
 	mongoUri := flag.String("uri", "", "Mongo connection URI")
 	key := flag.String("key", "", "Columbus API key")
 	flag.BoolVar(&verbose, "verbose", false, "Print successfuly inserted domains")
+	workers := flag.Int("workers", runtime.NumCPU(), "Number of workers to insert")
 	server := flag.String("columbus", "https://columbus.elmasy.com", "Columbus server URI")
 
 	flag.Parse()
+
+	wg := sync.WaitGroup{}
 
 	if *mongoUri == "" {
 		fmt.Fprintf(os.Stderr, "FAIL: uri is missing!\n")
@@ -73,7 +83,16 @@ func main() {
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
+	if *workers <= 0 {
+		fmt.Fprintf(os.Stderr, "Invalid number of workers: %d\n", *workers)
+		fmt.Printf("Usage of %s:\n", os.Args[0])
+		flag.PrintDefaults()
+		os.Exit(1)
+	}
 
+	fmt.Printf("Starting at %s...\n", time.Now().Format(time.Stamp))
+
+	domainChan = make(chan sdk.Domain, 256)
 	var err error
 
 	client, err = mongo.Connect(context.TODO(), options.Client().ApplyURI(*mongoUri))
@@ -101,15 +120,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Ugly! But this tool is temporary.
-	go insertWorker()
-	go insertWorker()
-	go insertWorker()
-	go insertWorker()
-	go insertWorker()
-	go insertWorker()
-	go insertWorker()
-	go insertWorker()
+	for numw := 0; numw < *workers; numw++ {
+		wg.Add(1)
+		go insertWorker(&wg)
+	}
 
 	cursor, err := collection.Find(context.TODO(), bson.D{})
 	if err != nil {
@@ -135,6 +149,8 @@ func main() {
 
 		domainChan <- d
 	}
+
+	wg.Wait()
 
 	if err := cursor.Err(); err != nil {
 		fmt.Fprintf(os.Stderr, "Cursor error: %s\n", err)
