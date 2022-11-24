@@ -83,6 +83,10 @@ func main() {
 		}
 
 		full := result.GetFull()
+		if len(full) != l {
+			fmt.Printf("INVALIDLEN  -> Invalid length of subs for %s/%d after GetFull(): %d vs %d\n", result.Domain, result.Shard, len(full), l)
+		}
+
 		for i := range full {
 
 			totalSubs++
