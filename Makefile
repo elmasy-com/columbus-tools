@@ -1,5 +1,13 @@
-dump-build:
-	cd dump-cli && go build -o dump -ldflags "-s -w" . && mv dump ..
+LDFLAGS = -s
+LDFLAGS += -w
+LDFLAGS += -extldflags "-static"'
 
-inspector-build:
-	cd inspector-cli && go build -o inspector -ldflags "-s -w" . && mv inspector ..
+clean:
+	@if [ -e "uniquestat/uniquestat" ];	then rm -rf "uniquestat/uniquestat" ; fi
+	@if [ -e "duplicator/duplicator" ];	then rm -rf "duplicator/duplicator" ; fi
+
+duplicator:
+	cd duplicator && go build -o duplicator -tags netgo -ldflags="$(LDFLAGS)" .
+
+uniquestat:
+	cd uniquestat && go build -o uniquestat -tags netgo -ldflags="$(LDFLAGS)" .
